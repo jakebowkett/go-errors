@@ -23,8 +23,8 @@ func TestNew(t *testing.T) {
 	if err.Error() != msg {
 		t.Error("Call to New didn't create an error with the supplied message.")
 	}
-	if len(custErr.comments) > 0 {
-		t.Error("Call to New resulted in err with comments.")
+	if len(custErr.prefixes) > 0 {
+		t.Error("Call to New resulted in err with prefixes.")
 	}
 	if len(custErr.stack) == 0 {
 		t.Error("Call to New didn't produce a stack.")
@@ -42,7 +42,7 @@ func TestNewF(t *testing.T) {
 	}
 }
 
-func TestComment(t *testing.T) {
+func TestPrefix(t *testing.T) {
 
 	msg := "hello"
 	com := "yoo"
@@ -51,9 +51,9 @@ func TestComment(t *testing.T) {
 		err     error
 		wantNil bool
 	}{
-		{Comment(nil, com), true},
-		{Comment(errors.New(msg), com), false}, // Adding comment to standard error.
-		{Comment(New(msg), com), false},        // Adding comment to custom error.
+		{Prefix(nil, com), true},
+		{Prefix(errors.New(msg), com), false}, // Adding prefix to standard error.
+		{Prefix(New(msg), com), false},        // Adding prefix to custom error.
 	}
 
 	for _, c := range cases {
@@ -75,11 +75,11 @@ func TestComment(t *testing.T) {
 		if len(custErr.stack) == 0 {
 			t.Error("No stack.")
 		}
-		if len(custErr.comments) != 1 {
-			t.Error("Incorrect number of comments.")
+		if len(custErr.prefixes) != 1 {
+			t.Error("Incorrect number of prefixes.")
 		}
-		if custErr.comments[0] != com {
-			t.Error("Incorrect comment.")
+		if custErr.prefixes[0] != com {
+			t.Error("Incorrect prefix.")
 		}
 		if err.Error() != "yoo: hello" {
 			t.Error("Incorrect error string.")
@@ -87,12 +87,12 @@ func TestComment(t *testing.T) {
 	}
 }
 
-func TestCommentF(t *testing.T) {
+func TestPrefixF(t *testing.T) {
 
 	msg := "hello"
 	com := "yoo %s"
 	arg := "awooo"
-	err := CommentF(errors.New(msg), com, arg)
+	err := PrefixF(errors.New(msg), com, arg)
 
 	if err.Error() != "yoo awooo: hello" {
 		t.Error("Error message incorrectly formatted.")
@@ -108,11 +108,11 @@ func TestStack(t *testing.T) {
 		err     error
 		wantNil bool
 	}{
-		{AddStack(nil), true},                            // Add stack to nil
-		{AddStack(errors.New(msg)), false},               // Add stack to standard error.
-		{AddStack(New(msg)), false},                      // Add stack to custom error.
-		{AddStack(Comment(errors.New(msg), com)), false}, // Add stack to commented standard error.
-		{AddStack(Comment(New(msg), com)), false},        // Add stack to commented custom error.
+		{AddStack(nil), true},                           // Add stack to nil
+		{AddStack(errors.New(msg)), false},              // Add stack to standard error.
+		{AddStack(New(msg)), false},                     // Add stack to custom error.
+		{AddStack(Prefix(errors.New(msg), com)), false}, // Add stack to prefixed standard error.
+		{AddStack(Prefix(New(msg), com)), false},        // Add stack to prefixed custom error.
 	}
 
 	for _, c := range cases {
@@ -134,13 +134,13 @@ func TestStack(t *testing.T) {
 		if len(custErr.stack) == 0 {
 			t.Error("No stack.")
 		}
-		if len(custErr.comments) > 0 && custErr.comments[0] != com {
-			t.Error("Incorrect comment.")
+		if len(custErr.prefixes) > 0 && custErr.prefixes[0] != com {
+			t.Error("Incorrect prefix.")
 		}
-		if len(custErr.comments) > 0 && err.Error() != "yoo: hello" {
+		if len(custErr.prefixes) > 0 && err.Error() != "yoo: hello" {
 			t.Error("Incorrect error string.")
 		}
-		if len(custErr.comments) == 0 && err.Error() != "hello" {
+		if len(custErr.prefixes) == 0 && err.Error() != "hello" {
 			t.Error("Incorrect error string.")
 		}
 	}

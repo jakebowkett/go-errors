@@ -1,6 +1,82 @@
 /*
-Package errors allows adding comments and stack traces
-to errors while preserving the original error.
+Package errors adds context to errors while preserving
+the original.
+
+The package shadows the standard library's errors.New and
+returns a custom error that has its own stack trace beginning
+at the call site.
+
+	err := errors.New("whoops")
+	fmt.Print(err)
+
+The above will output something like this:
+
+	Error: whoops
+	  │
+	  ├─ (package.function)
+	  │     C:/path/to/package/of/origin/file.go:12
+	  │
+	  ├─ (package.function)
+	  │     C:/path/to/package/of/caller/file.go:36
+	  │
+	  └─ (package.function)
+	        C:/path/to/package/of/callers/caller/file.go:36
+
+Stack traces omit calls from this errors package.
+
+Existing errors can be prefixed with additional context by calling Prefix.
+If the error supplied was created by this package its message will be
+prefixed with the supplied string. If the error is from the standard
+library or some other source it will be prefixed and have a stack added to
+it.
+
+	err := errors.New("whoops")
+	err = errors.Prefix(err, "oh no")
+	fmt.Print(err)
+
+Output:
+
+	Error: oh no: whoops
+	  │
+	  ├─ (package.function)
+	  │     C:/path/to/package/of/origin/file.go:12
+	  │
+	  ├─ (package.function)
+	  │     C:/path/to/package/of/caller/file.go:36
+	  │
+	  └─ (package.function)
+	        C:/path/to/package/of/callers/caller/file.go:36
+
+
+You can pass errors from the standard library and other sources to
+functions in this package and they will be preserved and retrievable:
+
+	// Let's assume this produces an error.
+	f, err := ioutil.ReadFile(path)
+	err = errors.AddStack(err)
+
+	// Prints the error and stack trace as in above examples.
+	fmt.Print(err)
+
+	// Retrieve and print only the original error.
+	err = errors.Cause(err)
+	fmt.Print(err) // prints "file does not exist"
+
+Less verbose forms of printing are possible:
+
+	err := errors.New("whoops")
+	fmt.Print("%s")
+	fmt.Print("%q")
+
+These will respectively print:
+
+	Error: whoops
+	"Error: whoops"
+
+If the error passed to a function is nil it will return nil. Errors
+that already have a stack will not have it replaced by calling AddStack
+or Prefix on them.
+
 */
 package errors
 
@@ -13,7 +89,7 @@ import (
 
 type container struct {
 	err      error
-	comments []string
+	prefixes []string
 	stack    []frame
 }
 
@@ -46,25 +122,25 @@ func newErr(msg string) error {
 }
 
 /*
-Comment takes an error and annotates it with comment to
-give more context and adds a stack trace from the point
+Prefix takes an error and annotates it with prefix to
+give more context, It also adds a stack trace from the point
 it was called if one doesn't already exist. The original
 error message is preserved and can be retrieved with Cause.
 Returns nil if err is nil.
 */
-func Comment(err error, comment string) error {
-	return addComment(err, comment)
+func Prefix(err error, prefix string) error {
+	return addPrefix(err, prefix)
 }
 
 /*
-CommentF is the same as Comment and formats the comment
+PrefixF is the same as Prefix and formats the prefix
 according to format.
 */
-func CommentF(err error, format string, a ...interface{}) error {
-	return addComment(err, fmt.Sprintf(format, a...))
+func PrefixF(err error, format string, a ...interface{}) error {
+	return addPrefix(err, fmt.Sprintf(format, a...))
 }
 
-func addComment(err error, comment string) error {
+func addPrefix(err error, prefix string) error {
 
 	if err == nil {
 		return nil
@@ -75,13 +151,13 @@ func addComment(err error, comment string) error {
 	if !ok {
 		return &container{
 			err:      err,
-			comments: []string{comment},
+			prefixes: []string{prefix},
 			stack:    stack(3),
 		}
 	}
 
 	// One of ours.
-	custErr.comments = append(custErr.comments, comment)
+	custErr.prefixes = append(custErr.prefixes, prefix)
 	return custErr
 }
 
@@ -107,7 +183,7 @@ func AddStack(err error) error {
 
 /*
 Cause retrieves the original error if it has been previously
-annotated with comments or a stack. Standard errors are returned
+annotated with prefixes or a stack. Standard errors are returned
 as-is. Cause returns nil if err is nil.
 */
 func Cause(err error) error {
@@ -123,8 +199,8 @@ func Cause(err error) error {
 
 func (e *container) Error() string {
 	var s string
-	for _, c := range e.comments {
-		s += c + ": "
+	for _, p := range e.prefixes {
+		s += p + ": "
 	}
 	return s + e.err.Error()
 }
@@ -155,7 +231,7 @@ func (e *container) Format(s fmt.State, verb rune) {
 
 func stack(skip int) []frame {
 
-	pc := make([]uintptr, 32)
+	pc := make([]uintptr, 16)
 	n := runtime.Callers(1, pc)
 	pc = pc[:n]
 	frames := runtime.CallersFrames(pc)

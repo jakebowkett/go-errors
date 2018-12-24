@@ -150,7 +150,7 @@ func TestFormat(t *testing.T) {
 
 	fErr := "Error incorrectly formatted."
 
-	errStr := fmt.Sprint(New("hello"))
+	errStr := fmt.Sprintf("%+v", New("hello"))
 	if !strings.Contains(errStr, "Error: ") {
 		t.Error(fErr)
 	}
@@ -191,5 +191,35 @@ func TestCause(t *testing.T) {
 	err = Cause(err)
 	if err != custErr.err {
 		t.Error("Error returned from Cause not equal to original error.")
+	}
+}
+
+func TestEquals(t *testing.T) {
+
+	stdErr := errors.New("hello")
+	custErr := New("hello")
+	if Equals(stdErr, custErr) {
+		t.Error("Expected false when comparing errors with different origins.")
+	}
+
+	custErr2 := New("hello")
+	if Equals(custErr, custErr2) {
+		t.Error("Expected false when comparing errors with different origins.")
+	}
+
+	if !Equals(custErr, custErr) {
+		t.Error("Expected true when comparing errors with same.")
+	}
+
+	if !Equals(nil, nil) {
+		t.Error("Expected true when comparing two nil values.")
+	}
+
+	if Equals(custErr, nil) {
+		t.Error("Expected false when comparing custom error to nil.")
+	}
+
+	if Equals(stdErr, nil) {
+		t.Error("Expected false when comparing standard error to nil.")
 	}
 }

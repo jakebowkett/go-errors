@@ -22,8 +22,6 @@ The above will output something like this:
 	  └─ (package.function)
 	        C:/path/to/package/of/callers/caller/file.go:36
 
-Stack traces omit calls from this errors package.
-
 Existing errors can be prefixed with additional context by calling Prefix.
 If the error supplied was created by this package its message will be
 prefixed with the supplied string. If the error is from the standard
@@ -197,6 +195,16 @@ func Cause(err error) error {
 	return custErr.err
 }
 
+/*
+Equals returns true if the original error value of err1 and err2
+is the same. Equivalent to:
+
+	errors.Cause(err1) == errors.Cause(err2)
+*/
+func Equals(err1, err2 error) bool {
+	return Cause(err1) == Cause(err2)
+}
+
 func (e *container) Error() string {
 	var s string
 	for _, p := range e.prefixes {
@@ -206,26 +214,35 @@ func (e *container) Error() string {
 }
 
 func (e *container) Format(s fmt.State, verb rune) {
+
 	switch verb {
+
 	case 'v':
+
 		fmt.Fprintf(s, "Error: %s\n  │\n", e.Error())
+
 		for i, f := range e.stack {
+
 			start := "├─ "
 			fileStart := "│"
 			if i == len(e.stack)-1 {
 				start = "└─ "
 				fileStart = " "
 			}
+
 			fmt.Fprintf(s,
 				"  %s(%s)\n"+
 					"  %s     %s:%d\n"+
 					"  %s\n",
 				start, f.function, fileStart, f.file, f.line, fileStart)
 		}
+
 	case 's':
 		fmt.Fprint(s, e.err.Error())
+
 	case 'q':
 		fmt.Fprintf(s, "%q", e.err.Error())
+
 	}
 }
 
